@@ -1,5 +1,6 @@
 # FastAPI app initialization
 
+import os
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -8,6 +9,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from database.connection import connection_pool, DatabaseConnectionError
 from api.v1.auth import router as auth_router
 import logging
+from api.v1 import crop, train
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,6 +51,15 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(crop.router, prefix="/api/v1/crop")
+app.include_router(train.router)
+
+@app.on_event("startup")
+def startup_event():
+    os.makedirs("model_artifacts", exist_ok=True)
+    os.makedirs("data", exist_ok=True)
+    from ml.predictor import CropPredictor
+    CropPredictor.get_instance()
 
 @app.get("/health", tags=["Health Check"])
 async def health_check():

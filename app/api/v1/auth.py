@@ -21,7 +21,7 @@ async def get_user_profile(
             detail=str(e)
         )
 
-@router.post("/login/json", response_model=Token)
+@router.post("/login", response_model=Token)
 async def login_json(credentials: UserLogin):
     user = get_user_by_username(credentials.username)
     if not user or not verify_password(credentials.password, user["password"]):
