@@ -7,7 +7,7 @@ from models.crop import CropCreate, Crop
 from auth.security import get_current_user
 from typing import List
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/crop")
 
 @router.post("/predict", response_model=Crop)
 async def predict_crop(

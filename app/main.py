@@ -51,7 +51,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router)
-app.include_router(crop.router, prefix="/api/v1/crop")
+app.include_router(crop.router)
 app.include_router(train.router)
 
 @app.on_event("startup")
