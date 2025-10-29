@@ -1,0 +1,1 @@
+SELECT id, crop_name, price, stock FROM seeds;
