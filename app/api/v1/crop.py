@@ -1,18 +1,24 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from fastapi.security import HTTPBearer
 from ml.predictor import CropPredictor
 from crud.crop import create_crop, get_user_crops
 from models.crop import CropCreate, Crop
 from auth.security import get_current_user
 from typing import List
+import logging
 
 from models.user import UserInDB
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api/v1/crop")
 
 @router.post("/predict", response_model=Crop)
+@limiter.limit("5/minute")
 async def predict_crop(
+    request: Request,
     crop_data: CropCreate,
     current_user: UserInDB = Depends(get_current_user)
 ):

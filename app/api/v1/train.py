@@ -71,6 +71,7 @@ def train_model_task(model_dir: str, data_path: str):
             f.write(f"{datetime.now()}: {str(e)}\n")
         raise
 
+
 @router.post("/training", response_model=Dict[str, str])
 async def train_model(
     background_tasks: BackgroundTasks,
