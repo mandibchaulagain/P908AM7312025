@@ -38,3 +38,38 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
     if not user_data:
         raise HTTPException(status_code=404, detail="User not found")
     return UserInDB(**user_data)
+
+
+def decode_token(token: str) -> UserInDB:
+    """
+    Decode a JWT token and return a UserInDB object.
+    Raises HTTPException if the token is invalid or user not found.
+    """
+    if is_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked"
+        )
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing username"
+            )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+    user_data = get_user_by_username(username)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return UserInDB(**user_data)

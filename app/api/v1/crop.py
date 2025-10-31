@@ -1,57 +1,76 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from ml.predictor import CropPredictor
-from crud.crop import create_crop, get_user_crops
-from models.crop import CropCreate, Crop
+from crud.crop import create_prediction, get_all_predictions
+from models.crop import Crop, CropInput
 from auth.security import get_current_user
-from typing import List
+from typing import Any, Dict, List
 import logging
+from auth.security import decode_token
+
+
 
 from models.user import UserInDB
+router = APIRouter(prefix="/api/v1/crop", tags=["Prediction"])
+security = HTTPBearer()
 
-limiter = Limiter(key_func=get_remote_address)
-router = APIRouter(prefix="/api/v1/crop")
 
-@router.post("/predict", response_model=Crop)
-@limiter.limit("5/minute")
-async def predict_crop(
-    request: Request,
-    crop_data: CropCreate,
-    current_user: UserInDB = Depends(get_current_user)
-):
-    predictor = CropPredictor.get_instance()
+
+# Prediction Endpoint
+
+@router.post("/predict", response_model=Dict[str, Any])
+async def predict_crop(data: CropInput, current_user: HTTPAuthorizationCredentials = Depends(security)):
     try:
-        # Convert input to dict for prediction
-        input_data = crop_data.dict()
-        
-        # Get prediction
-        prediction = predictor.predict(input_data)
-        
-        # Save to database
-        crop_id = create_crop(
-            {**input_data, "prediction": prediction},
-            current_user.id
-        )
-        
-        # Return created crop as Pydantic model
-        return Crop(
-            id=crop_id,
-            user_id=current_user.id,
-            prediction=prediction,
-            created_at=datetime.utcnow(),
-            **input_data
-        )
-        
+        predictor = CropPredictor.get_instance()
+
+        # Map input fields to match model feature names
+        input_data = {
+            "Nitrogen": data.Nitrogen,
+            "Phosphorous": data.Phosphorous,
+            "Potassium": data.Potassium,
+            "Temperature": data.Temperature,
+            "Rainfall": data.Rainfall,
+            "Humidity": data.Humidity
+        }
+
+        predictions = predictor.predict(input_data)
+
+        # Save into the new table
+        record_id = create_prediction({**input_data, "prediction": predictions})
+
+        return {
+            "record_id": record_id,
+            "status": "success",
+            "model_version": predictor.model_version,
+            "predictions": predictions
+        }
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Model artifacts not found.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-@router.get("/history", response_model=List[Crop])
-async def get_history(
-    current_user: UserInDB = Depends(get_current_user)
-):
-    # Access id as an attribute, not like a dict
-    return get_user_crops(current_user.id)
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+@router.get("/history")
+async def get_prediction_history(limit: int = Query(50, ge=1, le=500)):
+    """
+    Return the last N crop predictions from the database.
+    Default: last 50 predictions.
+    """
+    try:
+        predictions = get_all_predictions(limit=limit)
+        return {
+            "status": "success",
+            "count": len(predictions),
+            "predictions": predictions
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "detail": str(e)
+        }
