@@ -1,8 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from ml.predictor import CropPredictor
 from crud.crop import create_prediction, get_all_predictions
