@@ -7,7 +7,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./app:/app/app
+      # removing below for production
+      # - ./app:/app/app
     env_file:
       - .env
     environment:
