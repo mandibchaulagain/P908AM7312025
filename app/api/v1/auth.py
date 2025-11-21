@@ -1,8 +1,8 @@
 #auth endpoints
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from auth.security import create_access_token, get_current_user, oauth2_scheme
-from auth.utils import add_to_blacklist, verify_password
+from auth.security import create_access_token, create_refresh_token, decode_refresh_token, get_current_user, oauth2_scheme
+from auth.utils import add_to_blacklist, is_blacklisted, verify_password
 from crud.user import get_user_by_username, create_user
 from models.user import UserCreate, UserInDB, Token, UserLogin, UserPublic
 from database.connection import connection_pool
@@ -31,17 +31,29 @@ async def login_json(credentials: UserLogin):
             detail="Incorrect username or password",
         )
     
-    access_token = create_access_token(data={"sub": user["username"]})
-    return {"access_token": access_token, "token_type": "bearer"}
+    access_token = create_access_token({"sub": user["username"]})
+    refresh_token = create_refresh_token({"sub": user["username"]})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
+
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
-async def logout(current_user: UserInDB = Depends(get_current_user), token: str = Depends(oauth2_scheme)):
-    """
-    Logs out the current user by blacklisting their JWT.
-    """
+async def logout(
+    current_user: UserInDB = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
+    refresh_token: str | None = None
+):
     add_to_blacklist(token)
+    if refresh_token:
+        add_to_blacklist(refresh_token)
+
     return {"detail": f"User {current_user.username} has been logged out"}
+
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -95,3 +107,23 @@ async def delete_account(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+    
+@router.post("/refresh", response_model=Token)
+async def refresh_token(refresh_token: str):
+    if is_blacklisted(refresh_token):
+        raise HTTPException(status_code=401, detail="Refresh token revoked")
+
+    username = decode_refresh_token(refresh_token)
+
+    # Issue new access + refresh
+    new_access = create_access_token({"sub": username})
+    new_refresh = create_refresh_token({"sub": username})
+
+    # Blacklist old refresh token 
+    add_to_blacklist(refresh_token)
+
+    return {
+        "access_token": new_access,
+        "refresh_token": new_refresh,
+        "token_type": "bearer"
+    }

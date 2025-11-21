@@ -1,3 +1,4 @@
+#This is setting up a connection pool to a MySQL database. Using a connection pool has its advantages. The main advantage is: we would be able to reuse connections instead of creating new ones every time a query is executed. This improves perfomance in applications with heavy database interactions.
 import mysql.connector.pooling
 import os
 from dotenv import load_dotenv

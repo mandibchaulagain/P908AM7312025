@@ -82,6 +82,7 @@ class UserUpdate(BaseModel):
 class Token(BaseModel):
     """JWT token response"""
     access_token: str = Field(examples=["eyJhbGciOi..."])
+    refresh_token: str
     token_type: str = Field(default="bearer", examples=["bearer"])
 
 class TokenData(BaseModel):
