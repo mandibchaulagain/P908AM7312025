@@ -30,7 +30,7 @@ services:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./app/db/croprec_db_dump.sql:/docker-entrypoint-initdb.d/croprec_db_dump.sql
+      - ./app/db/croprec_db_dump.sql:/docker-entrypoint-initdb.d
 
 volumes:
   mysql_data:
