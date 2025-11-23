@@ -1,7 +1,7 @@
 # JWT token handling
 
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
+from jose import ExpiredSignatureError, JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, HTTPException, status
 from database.connection import connection_pool
@@ -83,15 +83,42 @@ def create_refresh_token(data: dict):
 
 def decode_refresh_token(token: str) -> str:
     try:
+        # Decoding the refresh token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        # Check if the type is 'refresh'
         if payload.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
+                detail="Invalid refresh token type"
             )
-        return payload.get("sub")
+
+        # Check if the 'sub' claim exists
+        sub = payload.get("sub")
+        if not sub:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing user identifier in refresh token"
+            )
+
+        # Return the 'sub' if everything is valid
+        return sub
+
+    except ExpiredSignatureError:
+        # This block is executed if the token is expired
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has expired"
+        )
     except JWTError:
+        # This block is executed for any JWT decoding error (invalid token, signature, etc.)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
+        )
+    except ValueError:
+        # This block would catch any ValueError (like if the token is malformed)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Malformed refresh token"
         )
