@@ -1,7 +1,7 @@
-INSERT IGNORE INTO metric_types (name, unit, data_type) VALUES
-    ('nitrogen', 'ppm', 'float'),
-    ('phosphorus', 'ppm', 'float'),
-    ('potassium', 'ppm', 'float'),
-    ('temperature', '°C', 'float'),
-    ('rainfall', 'mm', 'float'),
-    ('humidity', '%', 'float');
+INSERT IGNORE INTO metric_types (name, data_type) VALUES
+    ('nitrogen','float'),
+    ('phosphorus', 'float'),
+    ('potassium', 'float'),
+    ('temperature', 'float'),
+    ('rainfall', 'float'),
+    ('humidity', 'float');
