@@ -64,7 +64,7 @@ async def register(user: UserCreate):
             detail="Username already registered",
         )
     
-    user_id = create_user(user.username, user.password, user.email)
+    user_id = create_user(user.username, user.email, user.password, is_admin=False)
     return {"id": user_id, "username": user.username}
 
 @router.delete("/delete-account", status_code=status.HTTP_200_OK)

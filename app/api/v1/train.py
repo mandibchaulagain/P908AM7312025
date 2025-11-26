@@ -15,10 +15,19 @@ from collections import Counter
 from ml.model import RandomForest
 from ml.decision_model import DecisionTreeClassifier
 from ml.gradient_boosting import FastGBMClassifier
+from database.connection import connection_pool
 
 router = APIRouter(prefix="/api/v1/train")
 security = HTTPBearer()
 
+def get_feature_names():
+    conn = connection_pool.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM metric_types")
+    features = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return features
 
 # Ensemble Voting
 def majority_vote(preds_list):
@@ -44,9 +53,8 @@ def train_model_task(model_dir: str, data_path: str):
         label_encoder = LabelEncoder()
         df['Label'] = label_encoder.fit_transform(df['Label'])
 
-        features = ['Nitrogen', 'Phosphorous', 'Potassium',
-                    'Temperature', 'Rainfall', 'Humidity']
-
+        features = get_feature_names()
+        
         X = df[features].values
         y = df['Label'].values
 

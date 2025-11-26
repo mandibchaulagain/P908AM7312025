@@ -1,14 +1,7 @@
-# user pydantic models
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, Annotated
 from datetime import datetime
-from enum import Enum
 import re
-
-class UserRole(str, Enum):
-    USER = "user"
-    ADMIN = "admin"
-    ANALYST = "analyst"
 
 class UserBase(BaseModel):
     """Base model shared properties"""
@@ -22,7 +15,6 @@ class UserBase(BaseModel):
         )
     ]
     email: EmailStr = Field(examples=["user@example.com"])
-    role: UserRole = Field(default=UserRole.USER, examples=["user"])
 
 class UserCreate(UserBase):
     """Properties to receive via API on creation"""
@@ -49,7 +41,7 @@ class UserCreate(UserBase):
 class UserInDB(UserBase):
     """Properties stored in DB"""
     id: int = Field(examples=[1])
-    # is_active: bool = Field(default=True, examples=[True])
+    is_admin: bool = False
     created_at: datetime = Field(examples=["2023-01-01T00:00:00"])
     updated_at: datetime = Field(examples=["2023-01-01T00:00:00"])
     
@@ -59,6 +51,7 @@ class UserInDB(UserBase):
 class UserPublic(UserBase):
     """Safe to return via API (no sensitive data)"""
     id: int = Field(examples=[1])
+    is_admin: bool = False
     created_at: datetime = Field(examples=["2023-01-01T00:00:00"])
 
 class UserUpdate(BaseModel):
@@ -88,7 +81,6 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     """Data stored in JWT token"""
     username: Optional[str] = Field(None, examples=["john_doe"])
-    role: Optional[UserRole] = Field(None, examples=["user"])
 
 class UserLogin(BaseModel):
     """Login request model"""
@@ -108,4 +100,3 @@ class PasswordResetConfirm(BaseModel):
     @classmethod
     def validate_password(cls, v: str) -> str:
         return UserCreate.validate_password(v)
-

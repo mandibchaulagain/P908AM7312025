@@ -14,9 +14,10 @@ def create_prediction(pred_data: dict):
     try:
         # Step 1: Insert into predictions table
         cursor.execute(
-            "INSERT INTO predictions (prediction) VALUES (%s)",
-            (json.dumps(pred_data["prediction"]),)
+            "INSERT INTO predictions (user_id, prediction) VALUES (%s, %s)",
+            (pred_data["user_id"], json.dumps(pred_data["prediction"]))
         )
+
         prediction_id = cursor.lastrowid
 
         # Step 2: Fetch metric IDs from metric_types
@@ -29,13 +30,15 @@ def create_prediction(pred_data: dict):
             "Temperature", "Rainfall", "Humidity"
         ]
 
+
         for field in metric_fields:
             metric_key = field.lower()
             if metric_key not in metric_map:
                 raise ValueError(f"Metric type '{metric_key}' not found in metric_types.")
 
             metric_id = metric_map[metric_key]
-            value = float(pred_data[field])
+            value = float(pred_data["metrics"][field])
+
 
             cursor.execute(
                 """INSERT INTO measurements (prediction_id, metric_id, value)
