@@ -100,3 +100,6 @@ class PasswordResetConfirm(BaseModel):
     @classmethod
     def validate_password(cls, v: str) -> str:
         return UserCreate.validate_password(v)
+
+class RefreshRequest(BaseModel):
+    refresh_token: str

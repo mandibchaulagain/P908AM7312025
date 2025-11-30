@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from auth.security import create_access_token, create_refresh_token, decode_refresh_token, get_current_user, oauth2_scheme
 from auth.utils import add_to_blacklist, is_blacklisted, verify_password
 from crud.user import get_user_by_username, create_user
-from models.user import UserCreate, UserInDB, Token, UserLogin, UserPublic
+from models.user import UserCreate, UserInDB, Token, UserLogin, UserPublic, RefreshRequest
 from database.connection import connection_pool
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -109,7 +109,9 @@ async def delete_account(
         )
     
 @router.post("/refresh", response_model=Token)
-async def refresh_token(refresh_token: str):
+async def refresh_token(request: RefreshRequest):
+    refresh_token = request.refresh_token
+
     if is_blacklisted(refresh_token):
         raise HTTPException(status_code=401, detail="Refresh token revoked")
 
@@ -119,7 +121,7 @@ async def refresh_token(refresh_token: str):
     new_access = create_access_token({"sub": username})
     new_refresh = create_refresh_token({"sub": username})
 
-    # Blacklist old refresh token 
+    # Blacklist old refresh token
     add_to_blacklist(refresh_token)
 
     return {
