@@ -78,6 +78,10 @@ class Token(BaseModel):
     refresh_token: str
     token_type: str = Field(default="bearer", examples=["bearer"])
 
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
 class TokenData(BaseModel):
     """Data stored in JWT token"""
     username: Optional[str] = Field(None, examples=["john_doe"])
@@ -100,6 +104,3 @@ class PasswordResetConfirm(BaseModel):
     @classmethod
     def validate_password(cls, v: str) -> str:
         return UserCreate.validate_password(v)
-
-class RefreshRequest(BaseModel):
-    refresh_token: str

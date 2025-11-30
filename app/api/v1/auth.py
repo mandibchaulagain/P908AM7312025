@@ -1,10 +1,10 @@
 #auth endpoints
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.security import create_access_token, create_refresh_token, decode_refresh_token, get_current_user, oauth2_scheme
 from auth.utils import add_to_blacklist, is_blacklisted, verify_password
 from crud.user import get_user_by_username, create_user
-from models.user import UserCreate, UserInDB, Token, UserLogin, UserPublic, RefreshRequest
+from models.user import AccessTokenResponse, UserCreate, UserInDB, Token, UserLogin, UserPublic
 from database.connection import connection_pool
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -22,38 +22,48 @@ async def get_user_profile(
             detail=str(e)
         )
 
-@router.post("/login", response_model=Token)
-async def login_json(credentials: UserLogin):
+@router.post("/login", response_model=AccessTokenResponse)
+async def login(credentials: UserLogin, response: Response):
     user = get_user_by_username(credentials.username)
     if not user or not verify_password(credentials.password, user["password"]):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-        )
-    
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+
     access_token = create_access_token({"sub": user["username"]})
     refresh_token = create_refresh_token({"sub": user["username"]})
 
+    # Set HttpOnly cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,   # True only in HTTPS
+        samesite="lax",
+        path="/"        # very important, cookie must be sent on /refresh
+    )
+
     return {
         "access_token": access_token,
-        "refresh_token": refresh_token,
         "token_type": "bearer"
     }
 
 
 
+
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(
+    response: Response,
     current_user: UserInDB = Depends(get_current_user),
     token: str = Depends(oauth2_scheme),
-    refresh_token: str | None = None
+    refresh_token: str | None = Cookie(None)
 ):
     add_to_blacklist(token)
     if refresh_token:
         add_to_blacklist(refresh_token)
-
+    
+    # Clear the refresh token cookie
+    response.delete_cookie(key="refresh_token", path="/")
+    
     return {"detail": f"User {current_user.username} has been logged out"}
-
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -108,10 +118,8 @@ async def delete_account(
             detail=str(e)
         )
     
-@router.post("/refresh", response_model=Token)
-async def refresh_token(request: RefreshRequest):
-    refresh_token = request.refresh_token
-
+@router.post("/refresh", response_model=AccessTokenResponse)
+async def refresh_token(response: Response, refresh_token: str = Cookie(...)):
     if is_blacklisted(refresh_token):
         raise HTTPException(status_code=401, detail="Refresh token revoked")
 
@@ -124,8 +132,18 @@ async def refresh_token(request: RefreshRequest):
     # Blacklist old refresh token
     add_to_blacklist(refresh_token)
 
+    # Set new refresh token in HttpOnly cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh,
+        httponly=True,
+        secure=False,  # only HTTPS in production
+        samesite="lax",
+        path="/"    
+    )
+
+    # Return new access token in JSON
     return {
         "access_token": new_access,
-        "refresh_token": new_refresh,
         "token_type": "bearer"
     }
